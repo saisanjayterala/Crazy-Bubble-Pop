@@ -8,6 +8,7 @@ const gameOverScreen = document.getElementById('game-over');
 const finalScoreElement = document.getElementById('final-score');
 const startScreen = document.getElementById('start-screen');
 const powerupIndicator = document.getElementById('powerup-indicator');
+const levelElement = document.getElementById('level');
 
 const mazeSize = 10;
 const cellSize = maze.clientWidth / mazeSize;
@@ -19,6 +20,7 @@ let gameInterval;
 let powerupActive = false;
 let enemies = [];
 let level = 1;
+let gameActive = false;
 
 function generateMaze() {
     mazeGrid = [];
@@ -72,6 +74,8 @@ function updatePlayerPosition() {
 }
 
 function movePlayer(dx, dy) {
+    if (!gameActive) return;
+    
     const newX = playerPosition.x + dx;
     const newY = playerPosition.y + dy;
 
@@ -89,6 +93,7 @@ function checkWin() {
         score += 10 * level;
         level++;
         updateScore();
+        updateLevel();
         generateMaze();
         renderMaze();
         placePlayer();
@@ -119,6 +124,10 @@ function updateScore() {
     scoreElement.textContent = score;
 }
 
+function updateLevel() {
+    levelElement.textContent = level;
+}
+
 function updateTimer() {
     timerElement.textContent = timeLeft;
     if (timeLeft <= 0) {
@@ -130,9 +139,12 @@ function startGame() {
     score = 0;
     timeLeft = 60;
     level = 1;
+    gameActive = true;
     updateScore();
     updateTimer();
+    updateLevel();
     startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
     generateMaze();
     renderMaze();
     placePlayer();
@@ -149,6 +161,7 @@ function startGame() {
 function endGame() {
     clearInterval(gameInterval);
     document.removeEventListener('keydown', handleKeyPress);
+    gameActive = false;
     gameOverScreen.classList.remove('hidden');
     finalScoreElement.textContent = score;
 }
@@ -163,6 +176,11 @@ function handleKeyPress(e) {
 }
 
 function placePowerup() {
+    const existingPowerup = document.querySelector('.powerup');
+    if (existingPowerup) {
+        maze.removeChild(existingPowerup);
+    }
+
     const powerup = document.createElement('div');
     powerup.className = 'powerup';
     let x, y;
@@ -193,6 +211,7 @@ function activatePowerup() {
 }
 
 function spawnEnemies() {
+    enemies.forEach(enemy => maze.removeChild(enemy.element));
     enemies = [];
     const numEnemies = Math.min(level, 5);
     for (let i = 0; i < numEnemies; i++) {
@@ -273,10 +292,7 @@ function animateWalls() {
 }
 
 startButton.addEventListener('click', startGame);
-restartButton.addEventListener('click', () => {
-    gameOverScreen.classList.add('hidden');
-    startGame();
-});
+restartButton.addEventListener('click', startGame);
 
 // Initial setup
 maze.style.width = `${mazeSize * cellSize}px`;
