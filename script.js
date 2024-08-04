@@ -10,36 +10,50 @@ const startScreen = document.getElementById('start-screen');
 const powerupIndicator = document.getElementById('powerup-indicator');
 const levelElement = document.getElementById('level');
 const highScoreElement = document.getElementById('high-score');
+const livesElement = document.getElementById('lives');
 
-const mazeSize = 12; // Increased maze size
+const mazeSize = 15; // Increased maze size
 const cellSize = maze.clientWidth / mazeSize;
 let mazeGrid = [];
 let playerPosition = { x: 0, y: 0 };
 let score = 0;
-let timeLeft = 90; // Increased starting time
+let timeLeft = 120; // Increased starting time
 let gameInterval;
 let powerupActive = false;
 let enemies = [];
 let level = 1;
 let gameActive = false;
-let highScore = 0;
+let highScore = localStorage.getItem('highScore') || 0;
 let collectibles = [];
 let powerups = [];
 let lives = 3;
+let isPaused = false;
 
-const powerupTypes = ['speed', 'invincibility', 'timeboost'];
+const powerupTypes = ['speed', 'invincibility', 'timeboost', 'magnet'];
+
+const sounds = {
+    collect: new Audio('collect.mp3'),
+    powerup: new Audio('powerup.mp3'),
+    enemyHit: new Audio('enemy-hit.mp3'),
+    levelUp: new Audio('level-up.mp3'),
+    gameOver: new Audio('game-over.mp3'),
+    background: new Audio('background-music.mp3')
+};
+
+sounds.background.loop = true;
 
 function generateMaze() {
     mazeGrid = [];
     for (let y = 0; y < mazeSize; y++) {
         mazeGrid[y] = [];
         for (let x = 0; x < mazeSize; x++) {
-            mazeGrid[y][x] = Math.random() < 0.25 ? 1 : 0; // Adjusted wall probability
+            mazeGrid[y][x] = Math.random() < 0.3 ? 1 : 0; // Adjusted wall probability
         }
     }
     mazeGrid[0][0] = 0;
     mazeGrid[mazeSize - 1][mazeSize - 1] = 0;
     
+    // Ensure a path from start to finish
     let currentX = 0;
     let currentY = 0;
     while (currentX !== mazeSize - 1 || currentY !== mazeSize - 1) {
@@ -80,7 +94,7 @@ function updatePlayerPosition() {
 }
 
 function movePlayer(dx, dy) {
-    if (!gameActive) return;
+    if (!gameActive || isPaused) return;
     
     const newX = playerPosition.x + dx;
     const newY = playerPosition.y + dy;
@@ -93,6 +107,7 @@ function movePlayer(dx, dy) {
         checkCollectibles();
         checkPowerups();
         checkWin();
+        updateMinimap();
     }
 }
 
@@ -110,11 +125,12 @@ function checkWin() {
         spawnEnemies();
         displayLevelUpMessage();
         increaseDifficulty();
+        playSoundEffect(sounds.levelUp);
     }
 }
 
 function increaseDifficulty() {
-    timeLeft = Math.max(30, 90 - (level * 5)); // Reduce time as levels progress
+    timeLeft = Math.max(30, 120 - (level * 5)); // Reduce time as levels progress
     enemies = enemies.filter(enemy => Math.random() < 0.7); // Remove some enemies
     spawnEnemies(); // Add new enemies
 }
@@ -156,12 +172,17 @@ function updateTimer() {
     }
 }
 
+function updateLives() {
+    livesElement.textContent = '❤'.repeat(lives);
+}
+
 function loseLife() {
     lives--;
+    updateLives();
     if (lives <= 0) {
         endGame();
     } else {
-        timeLeft = 90;
+        timeLeft = 120;
         placePlayer();
         displayMessage(`Lives left: ${lives}`, '#f00');
     }
@@ -169,13 +190,14 @@ function loseLife() {
 
 function startGame() {
     score = 0;
-    timeLeft = 90;
+    timeLeft = 120;
     level = 1;
     lives = 3;
     gameActive = true;
     updateScore();
     updateTimer();
     updateLevel();
+    updateLives();
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
     generateMaze();
@@ -185,11 +207,14 @@ function startGame() {
     placePowerups();
     spawnEnemies();
     gameInterval = setInterval(() => {
-        timeLeft--;
-        updateTimer();
-        moveEnemies();
+        if (!isPaused) {
+            timeLeft--;
+            updateTimer();
+            moveEnemies();
+        }
     }, 1000);
     document.addEventListener('keydown', handleKeyPress);
+    sounds.background.play();
 }
 
 function endGame() {
@@ -198,6 +223,9 @@ function endGame() {
     gameActive = false;
     gameOverScreen.classList.remove('hidden');
     finalScoreElement.textContent = score;
+    sounds.background.pause();
+    sounds.background.currentTime = 0;
+    playSoundEffect(sounds.gameOver);
 }
 
 function handleKeyPress(e) {
@@ -207,6 +235,7 @@ function handleKeyPress(e) {
         case 'ArrowDown': movePlayer(0, moveSpeed); break;
         case 'ArrowLeft': movePlayer(-moveSpeed, 0); break;
         case 'ArrowRight': movePlayer(moveSpeed, 0); break;
+        case 'p': togglePause(); break;
     }
 }
 
@@ -236,6 +265,7 @@ function checkCollectibles() {
             score += 5;
             updateScore();
             displayMessage('+5 points!', '#0f0');
+            playSoundEffect(sounds.collect);
         }
     });
 }
@@ -277,6 +307,8 @@ function activatePowerup(type) {
     powerupIndicator.classList.remove('hidden');
     player.classList.add(type);
 
+    playSoundEffect(sounds.powerup);
+
     switch (type) {
         case 'speed':
             // Speed boost handled in movePlayer function
@@ -287,6 +319,9 @@ function activatePowerup(type) {
         case 'timeboost':
             timeLeft += 15;
             updateTimer();
+            break;
+        case 'magnet':
+            collectNearbyCollectibles();
             break;
     }
 
@@ -299,10 +334,24 @@ function activatePowerup(type) {
     }, 10000);
 }
 
+function collectNearbyCollectibles() {
+    const range = 3;
+    collectibles.forEach((collectible, index) => {
+        if (Math.abs(collectible.x - playerPosition.x) <= range && Math.abs(collectible.y - playerPosition.y) <= range) {
+            maze.removeChild(collectible.element);
+            collectibles.splice(index, 1);
+            score += 5;
+            updateScore();
+            displayMessage('+5 points!', '#0f0');
+            playSoundEffect(sounds.collect);
+        }
+    });
+}
+
 function spawnEnemies() {
     enemies.forEach(enemy => maze.removeChild(enemy.element));
     enemies = [];
-    const numEnemies = Math.min(level + 2, 8);
+    const numEnemies = Math.min(level + 2, 10);
     for (let i = 0; i < numEnemies; i++) {
         let x, y;
         do {
@@ -360,8 +409,10 @@ function checkCollisions() {
                 score += 5;
                 updateScore();
                 displayMessage('+5 points!', '#0f0');
+                playSoundEffect(sounds.enemyHit);
             } else {
                 loseLife();
+                playSoundEffect(sounds.enemyHit);
             }
         }
     });
@@ -431,7 +482,6 @@ maze.addEventListener('touchend', function(e) {
 }, false);
 
 // Add a pause function
-let isPaused = false;
 const pauseButton = document.createElement('button');
 pauseButton.textContent = 'Pause';
 pauseButton.style.position = 'absolute';
@@ -447,75 +497,20 @@ function togglePause() {
     pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
     if (isPaused) {
         clearInterval(gameInterval);
+        sounds.background.pause();
     } else {
         gameInterval = setInterval(() => {
             timeLeft--;
             updateTimer();
             moveEnemies();
         }, 1000);
+        sounds.background.play();
     }
 }
-
-// Add sound effects
-const collectSound = new Audio('collect.mp3');
-const powerupSound = new Audio('powerup.mp3');
-const enemyHitSound = new Audio('enemy-hit.mp3');
-const levelUpSound = new Audio('level-up.mp3');
 
 function playSoundEffect(sound) {
     sound.currentTime = 0;
     sound.play();
-}
-
-// Modify relevant functions to include sound effects
-function checkCollectibles() {
-    collectibles.forEach((collectible, index) => {
-        if (collectible.x === playerPosition.x && collectible.y === playerPosition.y) {
-            maze.removeChild(collectible.element);
-            collectibles.splice(index, 1);
-            score += 5;
-            updateScore();
-            displayMessage('+5 points!', '#0f0');
-            playSoundEffect(collectSound);
-        }
-    });
-}
-
-
-function checkCollisions() {
-    enemies.forEach(enemy => {
-        if (enemy.x === playerPosition.x && enemy.y === playerPosition.y) {
-            if (powerupActive && activePowerup === 'invincibility') {
-                maze.removeChild(enemy.element);
-                enemies = enemies.filter(e => e !== enemy);
-                score += 5;
-                updateScore();
-                displayMessage('+5 points!', '#0f0');
-                playSoundEffect(enemyHitSound);
-            } else {
-                loseLife();
-                playSoundEffect(enemyHitSound);
-            }
-        }
-    });
-}
-
-function checkWin() {
-    if (playerPosition.x === mazeSize - 1 && playerPosition.y === mazeSize - 1) {
-        score += 10 * level;
-        level++;
-        updateScore();
-        updateLevel();
-        generateMaze();
-        renderMaze();
-        placePlayer();
-        placeCollectibles();
-        placePowerups();
-        spawnEnemies();
-        displayLevelUpMessage();
-        increaseDifficulty();
-        playSoundEffect(levelUpSound);
-    }
 }
 
 // Add a minimap
@@ -554,25 +549,6 @@ function updateMinimap() {
     }
 }
 
-// Modify the movePlayer function to update the minimap
-function movePlayer(dx, dy) {
-    if (!gameActive || isPaused) return;
-    
-    const newX = playerPosition.x + dx;
-    const newY = playerPosition.y + dy;
-
-    if (newX >= 0 && newX < mazeSize && newY >= 0 && newY < mazeSize && mazeGrid[newY][newX] === 0) {
-        playerPosition.x = newX;
-        playerPosition.y = newY;
-        updatePlayerPosition();
-        checkCollisions();
-        checkCollectibles();
-        checkPowerups();
-        checkWin();
-        updateMinimap();
-    }
-}
-
 // Add a tutorial screen
 const tutorialScreen = document.createElement('div');
 tutorialScreen.id = 'tutorial-screen';
@@ -594,6 +570,7 @@ tutorialScreen.innerHTML = `
     <p>Collect coins for points</p>
     <p>Grab power-ups for special abilities</p>
     <p>Avoid enemies and reach the exit</p>
+    <p>Press 'P' to pause the game</p>
     <button id="close-tutorial">Start Game</button>
 `;
 document.body.appendChild(tutorialScreen);
@@ -607,6 +584,76 @@ document.getElementById('close-tutorial').addEventListener('click', () => {
 startButton.addEventListener('click', () => {
     startScreen.classList.add('hidden');
     tutorialScreen.style.display = 'flex';
+});
+
+// Add a settings menu
+const settingsButton = document.createElement('button');
+settingsButton.textContent = 'Settings';
+settingsButton.style.position = 'absolute';
+settingsButton.style.top = '50px';
+settingsButton.style.left = '50%';
+settingsButton.style.transform = 'translateX(-50%)';
+document.body.appendChild(settingsButton);
+
+const settingsMenu = document.createElement('div');
+settingsMenu.id = 'settings-menu';
+settingsMenu.style.position = 'absolute';
+settingsMenu.style.top = '50%';
+settingsMenu.style.left = '50%';
+settingsMenu.style.transform = 'translate(-50%, -50%)';
+settingsMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+settingsMenu.style.padding = '20px';
+settingsMenu.style.borderRadius = '10px';
+settingsMenu.style.display = 'none';
+settingsMenu.innerHTML = `
+    <h3>Settings</h3>
+    <label>
+        <input type="checkbox" id="sound-toggle" checked>
+        Sound
+    </label>
+    <br>
+    <label>
+        Difficulty:
+        <select id="difficulty-select">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+        </select>
+    </label>
+    <br>
+    <button id="close-settings">Close</button>
+`;
+document.body.appendChild(settingsMenu);
+
+settingsButton.addEventListener('click', () => {
+    settingsMenu.style.display = 'block';
+});
+
+document.getElementById('close-settings').addEventListener('click', () => {
+    settingsMenu.style.display = 'none';
+});
+
+document.getElementById('sound-toggle').addEventListener('change', (e) => {
+    const isSoundOn = e.target.checked;
+    Object.values(sounds).forEach(sound => {
+        sound.muted = !isSoundOn;
+    });
+});
+
+document.getElementById('difficulty-select').addEventListener('change', (e) => {
+    const difficulty = e.target.value;
+    switch (difficulty) {
+        case 'easy':
+            timeLeft = 150;
+            break;
+        case 'medium':
+            timeLeft = 120;
+            break;
+        case 'hard':
+            timeLeft = 90;
+            break;
+    }
+    updateTimer();
 });
 
 // Call these functions to set up the game
