@@ -3,14 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crazy Bubble Pop</title>
+    <title>Neon Maze Runner</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="game-container">
+        <div id="maze"></div>
+        <div id="player"></div>
         <div id="score-container">Score: <span id="score">0</span></div>
         <div id="timer-container">Time: <span id="timer">60</span>s</div>
-        <div id="game-area"></div>
+        <div id="powerup-indicator" class="hidden">Power-up Active!</div>
+    </div>
+    <div id="start-screen">
+        <h1>Neon Maze Runner</h1>
         <button id="start-button">Start Game</button>
     </div>
     <div id="game-over" class="hidden">

@@ -1,16 +1,59 @@
-body {
+body, html {
     margin: 0;
     padding: 0;
+    height: 100%;
     font-family: Arial, sans-serif;
-    background-color: #f0f0f0;
+    background-color: #000;
     overflow: hidden;
 }
 
 #game-container {
     position: relative;
-    width: 100vw;
-    height: 100vh;
-    background-color: #333;
+    width: 100%;
+    height: 100%;
+    background-color: #111;
+}
+
+#maze {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80vmin;
+    height: 80vmin;
+    background-color: #000;
+    box-shadow: 0 0 20px #0ff;
+}
+
+.wall {
+    position: absolute;
+    background-color: #0ff;
+    box-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 30px #0ff;
+}
+
+#player {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: #f0f;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #f0f, 0 0 20px #f0f;
+    transition: all 0.1s ease;
+}
+
+.powerup {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    background-color: #ff0;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #ff0, 0 0 20px #ff0;
+    animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.2); }
 }
 
 #score-container, #timer-container {
@@ -18,7 +61,7 @@ body {
     top: 10px;
     color: #fff;
     font-size: 24px;
-    z-index: 10;
+    text-shadow: 0 0 10px #fff;
 }
 
 #score-container {
@@ -29,69 +72,70 @@ body {
     right: 10px;
 }
 
-#game-area {
+#powerup-indicator {
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ff0;
+    font-size: 24px;
+    text-shadow: 0 0 10px #ff0;
+}
+
+#start-screen, #game-over {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    z-index: 10;
 }
 
-.bubble {
-    position: absolute;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: transform 0.3s ease-in-out;
+h1, h2 {
+    font-size: 48px;
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px #0ff;
 }
 
-.bubble:hover {
-    transform: scale(1.1);
-}
-
-#start-button, #restart-button {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+button {
     padding: 10px 20px;
-    font-size: 20px;
-    background-color: #4CAF50;
-    color: white;
+    font-size: 24px;
+    background-color: #0ff;
+    color: #000;
     border: none;
     cursor: pointer;
-    z-index: 20;
+    transition: all 0.3s ease;
 }
 
-#game-over {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 20px;
-    text-align: center;
-    border-radius: 10px;
-    z-index: 30;
+button:hover {
+    background-color: #f0f;
+    box-shadow: 0 0 20px #f0f;
 }
 
 .hidden {
     display: none;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.2); }
-    100% { transform: scale(1); }
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
 }
 
-.spin {
-    animation: spin 0.5s linear infinite;
+.fade-in {
+    animation: fadeIn 0.5s forwards;
 }
 
-.pulse {
-    animation: pulse 0.5s ease-in-out;
+.fade-out {
+    animation: fadeOut 0.5s forwards;
 }
