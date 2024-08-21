@@ -1,6 +1,7 @@
 # Neon Maze Runner
 
 Neon Maze Runner is an exciting browser-based game where players navigate through a neon-lit maze, collecting points and power-ups while avoiding enemies.
+![image](https://github.com/user-attachments/assets/4995fc7a-1f68-478f-9fee-aac02be2435c)
 
 ## Game Logic
 
